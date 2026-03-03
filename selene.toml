@@ -1,7 +1,2 @@
 std='luau'
 exclude = ["lune_packages/*", "*.spec.lua"]
-
-[lints]
-divided_by_zero = "deny"
-
-
