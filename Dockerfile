@@ -1,42 +1,42 @@
 FROM debian:bookworm-slim
 
-# 1. Install system dependencies + libssl (CRITICAL for pesde/lune networking)
+# 1. Install system dependencies
 RUN apt-get update && \
-    apt-get install -y curl unzip ca-certificates libssl-dev && \
+    apt-get install -y curl unzip ca-certificates libssl-dev git && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. Install Lune (The Runtime) - Standardized v0.10.4
+# 2. Install Lune
 RUN curl -L https://github.com/lune-org/lune/releases/download/v0.10.4/lune-0.10.4-linux-x86_64.zip -o lune.zip && \
-    unzip lune.zip && \
-    # Lune unzips as a single file 'lune', so this is fine
+    # -j ignores internal folders and extracts the 'lune' binary to the root
+    unzip -j lune.zip && \
     chmod +x lune && \
-    mv lune /usr/local/bin/ && \
+    mv lune /usr/local/bin/lune && \
     rm lune.zip
 
-# 3. Install Pesde (The Package Manager) - Fixed Path Logic
+# 3. Install Pesde
 RUN curl -L https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registry.0.2.3/pesde-0.7.2-linux-x86_64.zip -o pesde.zip && \
-    # We unzip into a temp folder to ensure we find the binary regardless of subfolders
-    unzip pesde.zip -d pesde_temp && \
-    # Find the file named 'pesde' anywhere in the unzipped folder and move it
-    find pesde_temp -type f -name "pesde" -exec mv {} /usr/local/bin/pesde \; && \
-    chmod +x /usr/local/bin/pesde && \
-    rm -rf pesde.zip pesde_temp
+    # -j ensures the 'pesde' binary is extracted directly, even if it's inside a folder in the zip
+    unzip -j pesde.zip && \
+    chmod +x pesde && \
+    mv pesde /usr/local/bin/pesde && \
+    rm pesde.zip
 
 # 4. Project Setup
 WORKDIR /app
 
-# 5. Install dependencies
-# We copy pesde.toml AND pesde.lock (if you have one) to speed up builds
+# 5. Verify they are actually installed (This will show in your GitHub logs)
+RUN lune --version && pesde --version
+
+# 6. Install dependencies
 COPY pesde.toml ./
-# If you don't have a lockfile yet, this command won't fail
 RUN pesde install
 
-# 6. Copy the rest of your source code
+# 7. Copy the rest of your source code
 COPY . .
 
-# 7. Final config
+# 8. Set the environment variable for the port (Render/Railway use this)
+ENV PORT=8080
 EXPOSE 8080
 
-# 8. Run the application
-# Use 'lune run start' (Ensure 'start.luau' exists or it's a pesde script)
+# 9. Run the application
 CMD ["lune", "run", "start"]
