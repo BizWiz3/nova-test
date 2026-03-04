@@ -1,7 +1,9 @@
 local Nova = require("@pesde/nova")
+local process = require("@lune/process")
 
-local app = Nova.new(8080)
+local port = tonumber(process.env.PORT) or 8080
+local app = Nova.new(port)
 
 app:listen(function()  
-    print("Nova is running on port 8080")
+    print("Nova is running on port " .. port)
 end)

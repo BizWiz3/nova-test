@@ -44,7 +44,7 @@ RUN mkdir -p /root/.pesde && pesde install
 
 # 8. Copy source and Run
 COPY . .
-ENV PORT=8080
-EXPOSE 8080
+
+EXPOSE 10000
 
 CMD ["lune", "run", "start"]
