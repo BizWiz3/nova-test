@@ -1,14 +1,15 @@
-# 22.04 provides GLIBC 2.35, which satisfies the 'GLIBC_2.34' requirement
+# Ubuntu 22.04 (Jammy) is perfect for these binaries
 FROM ubuntu:22.04
 
 # 1. Install system dependencies
-# libssl3 is the crucial one for Ubuntu 22.04+
+# Added libdbus-1-3 to satisfy the Pesde dependency
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     unzip \
     ca-certificates \
     libssl3 \
+    libdbus-1-3 \
     git && \
     rm -rf /var/lib/apt/lists/*
 
@@ -30,18 +31,18 @@ RUN curl -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registr
 WORKDIR /app
 
 # 5. Verify they work
-# If this fails, the error message in the logs will now be very specific
+# Lune showed '0.10.4' last time, now Pesde should show its version too
 RUN lune --version && pesde --version
 
 # 6. Install dependencies
 COPY pesde.toml ./
-# Create the config directory for pesde to prevent permission errors
+# Ensure the pesde directory exists for caching
 RUN mkdir -p /root/.pesde && pesde install
 
 # 7. Copy the rest of your source code
 COPY . .
 
-# 8. Set Port
+# 8. Environment
 ENV PORT=8080
 EXPOSE 8080
 
