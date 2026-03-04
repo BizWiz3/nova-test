@@ -1,6 +1,6 @@
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
-# 1. Install system dependencies (Added libstdc++6 here)
+# 1. Install system dependencies
 RUN apt-get update && \
     apt-get install -y curl unzip ca-certificates libssl-dev git libstdc++6 && \
     rm -rf /var/lib/apt/lists/*
