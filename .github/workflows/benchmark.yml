@@ -31,8 +31,10 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
+          # Create BOTH files and set permissions
           touch ${{ github.workspace }}/results.json
-          chmod 666 ${{ github.workspace }}/results.json
+          touch ${{ github.workspace }}/summary.json
+          chmod 666 ${{ github.workspace }}/results.json ${{ github.workspace }}/summary.json
           
           docker run --rm \
             --network="host" \
