@@ -7,7 +7,7 @@
 
 | Total Requests | Requests/sec | p95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- |
-| **447751** | **5596.76** | **21.76ms** | **99.00%** |
+| **424083** | **5318.18** | **21.51ms** | **99.00%** |
 
-_Last Benchmarked: Sun Mar  8 15:35:15 UTC 2026_
+_Last Benchmarked: Sun Mar  8 15:41:49 UTC 2026_
 <!-- BENCHMARK_END -->
