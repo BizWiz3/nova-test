@@ -41,16 +41,6 @@ jobs:
             --out json=/io/results.json \
             --summary-export=/io/summary.json
         continue-on-error: true
-      
-      - name: Debug summary.json
-        if: always()
-        run: |
-          echo "=== File exists? ==="
-          ls -la ${{ github.workspace }}/summary.json || echo "FILE NOT FOUND"
-          echo "=== File contents ==="
-          cat ${{ github.workspace }}/summary.json || echo "EMPTY OR UNREADABLE"
-          echo "=== k6 exit code ==="
-          docker inspect nova-running-app --format='{{.State.ExitCode}}' || echo "N/A"
 
       - name: Generate Action Summary
         if: always()
@@ -59,8 +49,12 @@ jobs:
           if [ -f "summary.json" ] && [ -s "summary.json" ]; then
             RPS=$(jq -r '.metrics.http_reqs.rate // 0' summary.json)
             TOTAL=$(jq -r '.metrics.http_reqs.count // 0' summary.json)
+            P90=$(jq -r '.metrics.http_req_duration["p(90)"] // 0' summary.json)
             P95=$(jq -r '.metrics.http_req_duration["p(95)"] // 0' summary.json)
             AVG=$(jq -r '.metrics.http_req_duration.avg // 0' summary.json)
+            MED=$(jq -r '.metrics.http_req_duration.med // 0' summary.json)
+            DATA_RATE=$(jq -r '.metrics.data_received.rate // 0' summary.json)
+            FAILED=$(jq -r '.metrics.http_req_failed.passes // 0' summary.json)
 
             PASSES=$(jq -r '.metrics.checks.passes // 0' summary.json)
             FAILS=$(jq -r '.metrics.checks.fails // 0' summary.json)
@@ -72,6 +66,9 @@ jobs:
               SRATE="0.00"
             fi
 
+            # Convert data rate from bytes/s to MB/s
+            DATA_MBPS=$(echo "scale=2; $DATA_RATE / 1048576" | bc -l)
+
             echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
             echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
             echo "TOTAL_VAL=$TOTAL" >> $GITHUB_ENV
@@ -80,9 +77,13 @@ jobs:
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
             echo "| **Total Requests** | $TOTAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Failed Requests** | $FAILED |" >> $GITHUB_STEP_SUMMARY
             echo "| **Requests/sec** | $(printf "%.2f" $RPS) req/s |" >> $GITHUB_STEP_SUMMARY
             echo "| **Success Rate** | $SRATE% |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Average Latency** | $(printf "%.4f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Throughput** | $(printf "%.2f" $DATA_MBPS) MB/s |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Median Latency** | $(printf "%.2f" $MED)ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Average Latency** | $(printf "%.2f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **p90 Latency** | $(printf "%.2f" $P90)ms |" >> $GITHUB_STEP_SUMMARY
             echo "| **p95 Latency** | $(printf "%.2f" $P95)ms |" >> $GITHUB_STEP_SUMMARY
           else
             echo "summary.json not found or empty." >> $GITHUB_STEP_SUMMARY
