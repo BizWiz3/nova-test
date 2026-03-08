@@ -1,10 +1,5 @@
 name: Nova Performance Benchmark
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   benchmark:
@@ -16,19 +11,35 @@ jobs:
       - name: Build and Start Nova Server
         run: |
           docker build -t nova-app .
-          docker run -d -p 10000:10000 --name nova-running-app nova-app
-          sleep 5
+          docker run -d --network="host" --name nova-running-app nova-app
+          
+      - name: Wait for Server Ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:10000/ > /dev/null; then
+              echo "Nova is UP!"
+              break
+            fi
+            echo "Waiting for Nova... ($i)"
+            sleep 1
+          done
 
       - name: Run k6 Benchmark
-        continue-on-error: true
         run: |
-          docker run --rm --network="host" -v ${{ github.workspace }}:/io -i grafana/k6 run /io/scripts/bench.js
+          docker run --rm \
+            --network="host" \
+            -v ${{ github.workspace }}:/io \
+            -i grafana/k6 run /io/scripts/bench.js \
+            --out json=/io/results.json
+        continue-on-error: true
 
       - name: Show Nova Server Logs
+        if: always()
         run: docker logs nova-running-app
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: benchmark-results
           path: results.json
