@@ -41,17 +41,25 @@ jobs:
         if: always()
         run: |
           echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f "${{ github.workspace }}/results.json" ]; then
-            # Extracting key metrics using jq
-            RPS=$(grep "http_reqs" results.json | tail -n 1 | jq '.values.rate')
-            LATENCY=$(grep "http_req_duration" results.json | tail -n 1 | jq '.values["p(95)"]')
+          if [ -f "results.json" ]; then
+            # k6 JSON output is a stream. We need the specific 'summary' type or the last metric.
+            # This finds the last http_reqs metric and the last http_req_duration metric
+            RPS=$(grep '"metric":"http_reqs"' results.json | tail -n 1 | jq '.values.rate')
+            P95=$(grep '"metric":"http_req_duration"' results.json | tail -n 1 | jq '.values["p(95)"]')
+            AVG=$(grep '"metric":"http_req_duration"' results.json | tail -n 1 | jq '.values.avg')
             
+            # Format numbers to 2 decimal places for readability
+            RPS_FIXED=$(printf "%.2f" $RPS)
+            P95_FIXED=$(printf "%.2f" $P95)
+            AVG_FIXED=$(printf "%.4f" $AVG)
+
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Requests/sec** | $RPS |" >> $GITHUB_STEP_SUMMARY
-            echo "| **p95 Latency** | ${LATENCY}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Requests/sec** | $RPS_FIXED req/s |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Average Latency** | ${AVG_FIXED}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **p95 Latency** | ${P95_FIXED}ms |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "No results found. Check server logs." >> $GITHUB_STEP_SUMMARY
+            echo "results.json not found." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Show Nova Server Logs

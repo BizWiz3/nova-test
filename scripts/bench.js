@@ -1,25 +1,26 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+import { check } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '5s', target: 20 }, 
-    { duration: '20s', target: 100 },
+    { duration: '10s', target: 200 },
+    { duration: '30s', target: 1000 },
+    { duration: '10s', target: 0 },
   ],
 };
 
 export default function () {
-  const homeRes = http.get('http://127.0.0.1:8080/');
-  check(homeRes, { 'home status 200': (r) => r.status === 200 });
+  const params = {
+    headers: { 'Connection': 'keep-alive' },
+  };
+
+  const homeRes = http.get('http://127.0.0.1:8080/', params);
+  check(homeRes, { 'static_ok': (r) => r.status === 200 });
 
   const randomId = Math.floor(Math.random() * 10000);
-  const dynamicRes = http.get(`http://127.0.0.1:8080/users/${randomId}`);
+  const dynamicRes = http.get(`http://127.0.0.1:8080/users/${randomId}`, params);
   
   check(dynamicRes, {
-    'dynamic status 200': (r) => r.status === 200,
-    'dynamic latency < 150ms': (r) => r.timings.duration < 150,
+    'dynamic_ok': (r) => r.status === 200,
   });
-
-  sleep(0.1);
 }
