@@ -31,7 +31,6 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
-          # Prepare the results file with correct permissions for the Docker user
           touch ${{ github.workspace }}/results.json
           chmod 666 ${{ github.workspace }}/results.json
           
@@ -39,56 +38,51 @@ jobs:
             --network="host" \
             -v ${{ github.workspace }}:/io \
             -i grafana/k6 run /io/scripts/bench.js \
-            --out json=/io/results.json
+            --out json=/io/results.json \
+            --summary-export=/io/summary.json
         continue-on-error: true
 
       - name: Generate Action Summary
         if: always()
         run: |
           echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f "results.json" ]; then
-            # Extract final summary metrics from the JSON stream
-            RPS=$(jq -r 'select(.metric=="http_reqs") | .values.rate' results.json | tail -n 1)
-            P95=$(jq -r 'select(.metric=="http_req_duration") | .values["p(95)"]' results.json | tail -n 1)
-            AVG=$(jq -r 'select(.metric=="http_req_duration") | .values.avg' results.json | tail -n 1)
+          if [ -f "summary.json" ]; then
+            # Extract clean values from the summary export
+            RPS=$(jq -r '.metrics.http_reqs.values.rate' summary.json)
+            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"]' summary.json)
+            AVG=$(jq -r '.metrics.http_req_duration.values.avg' summary.json)
             
-            # Fallback to 0 to prevent printf errors if metrics are missing
-            RPS=${RPS:-0}
-            P95=${P95:-0}
-            AVG=${AVG:-0}
+            # Use 'bc' or a simple shell check to ensure they are numbers
+            # If jq fails, it defaults to 0
+            [[ "$RPS" == "null" || -z "$RPS" ]] && RPS=0
+            [[ "$P95" == "null" || -z "$P95" ]] && P95=0
+            [[ "$AVG" == "null" || -z "$AVG" ]] && AVG=0
 
-            # Format and Save to ENV for the README update step
-            RPS_FIXED=$(printf "%.2f" "$RPS")
-            P95_FIXED=$(printf "%.2f" "$P95")
-            AVG_FIXED=$(printf "%.4f" "$AVG")
-            
-            echo "RPS_VAL=$RPS_FIXED" >> $GITHUB_ENV
-            echo "P95_VAL=$P95_FIXED" >> $GITHUB_ENV
-            echo "AVG_VAL=$AVG_FIXED" >> $GITHUB_ENV
+            # Set ENV for README update
+            echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
+            echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
+            echo "AVG_VAL=$(printf "%.4f" $AVG)" >> $GITHUB_ENV
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Requests/sec** | $RPS_FIXED req/s |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Average Latency** | ${AVG_FIXED}ms |" >> $GITHUB_STEP_SUMMARY
-            echo "| **p95 Latency** | ${P95_FIXED}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Requests/sec** | $(printf "%.2f" $RPS) req/s |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Average Latency** | $(printf "%.4f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| **p95 Latency** | $(printf "%.2f" $P95)ms |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "results.json not found." >> $GITHUB_STEP_SUMMARY
+            echo "summary.json not found." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Update README with Stats
-        if: github.ref == 'refs/heads/main' && env.RPS_VAL != ''
+        if: github.ref == 'refs/heads/main' && env.RPS_VAL != '0.00'
         run: |
-          # Create the table string
           NEW_STATS="### Latest Performance (Auto-updated)\n| RPS | p95 Latency | Avg Latency |\n| :--- | :--- | :--- |\n| **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.AVG_VAL }}ms** |\n_Last Benchmarked: $(date)_"
           
-          # Use sed to wipe old content and inject new content between markers
           sed -i "//,//{ //b; //b; d }" README.md
           sed -i "//a $NEW_STATS" README.md
           
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
-          # [skip ci] is vital to prevent an infinite loop of benchmarks
           git commit -m "docs: update benchmark results [skip ci]" || echo "No changes to commit"
           git push
 
