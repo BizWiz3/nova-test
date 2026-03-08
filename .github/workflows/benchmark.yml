@@ -41,7 +41,17 @@ jobs:
             --out json=/io/results.json \
             --summary-export=/io/summary.json
         continue-on-error: true
-
+      
+      - name: Debug summary.json
+        if: always()
+        run: |
+          echo "=== File exists? ==="
+          ls -la ${{ github.workspace }}/summary.json || echo "FILE NOT FOUND"
+          echo "=== File contents ==="
+          cat ${{ github.workspace }}/summary.json || echo "EMPTY OR UNREADABLE"
+          echo "=== k6 exit code ==="
+          docker inspect nova-running-app --format='{{.State.ExitCode}}' || echo "N/A"
+          
       - name: Generate Action Summary
         if: always()
         run: |
