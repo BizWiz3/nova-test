@@ -26,12 +26,33 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
+          # Fix permissions for Docker write
+          touch ${{ github.workspace }}/results.json
+          chmod 666 ${{ github.workspace }}/results.json
+          
           docker run --rm \
             --network="host" \
             -v ${{ github.workspace }}:/io \
             -i grafana/k6 run /io/scripts/bench.js \
             --out json=/io/results.json
         continue-on-error: true
+
+      - name: Generate Action Summary
+        if: always()
+        run: |
+          echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f "${{ github.workspace }}/results.json" ]; then
+            # Extracting key metrics using jq
+            RPS=$(grep "http_reqs" results.json | tail -n 1 | jq '.values.rate')
+            LATENCY=$(grep "http_req_duration" results.json | tail -n 1 | jq '.values["p(95)"]')
+            
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Requests/sec** | $RPS |" >> $GITHUB_STEP_SUMMARY
+            echo "| **p95 Latency** | ${LATENCY}ms |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No results found. Check server logs." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Show Nova Server Logs
         if: always()
@@ -42,4 +63,4 @@ jobs:
         if: always()
         with:
           name: benchmark-results
-          path: results.json
+          path: ${{ github.workspace }}/results.json
