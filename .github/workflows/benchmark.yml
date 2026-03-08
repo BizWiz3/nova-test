@@ -20,12 +20,11 @@ jobs:
           sleep 5
 
       - name: Run k6 Benchmark
-        uses: grafana/k6-action@v0.3.1
-        with:
-          filename: scripts/bench.js
-          flags: --network="host"
-        env:
-          K6_OUT: json=results.json 
+        run: |
+          docker run --rm \
+            --network="host" \
+            -v ${{ github.workspace }}:/io \
+            -i grafana/k6 run /io/scripts/bench.js
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
