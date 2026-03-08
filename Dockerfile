@@ -1,19 +1,18 @@
 FROM ubuntu:24.04
 
-# 1. Standardize installation and cleanup
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl unzip ca-certificates libssl3 libdbus-1-3 libstdc++6 git && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. Install Lune with -fL (Fail on error, Follow redirects)
+# Install Lune
 RUN curl -f -L "https://github.com/lune-org/lune/releases/download/v0.10.4/lune-0.10.4-linux-x86_64.zip" -o lune.zip && \
     unzip -j lune.zip && \
     chmod +x lune && \
     mv lune /usr/local/bin/lune && \
     rm lune.zip
 
-# 3. Install Pesde
+# Install Pesde
 RUN curl -f -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registry.0.2.3/pesde-0.7.2-linux-x86_64.zip" -o pesde.zip && \
     unzip -j pesde.zip && \
     chmod +x pesde && \
@@ -22,7 +21,7 @@ RUN curl -f -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+regi
 
 WORKDIR /app
 
-RUN pesde config set user_token_store file
+ENV PESDE_CONFIG_USER_TOKEN_STORE=file
 
 COPY pesde.toml ./
 
