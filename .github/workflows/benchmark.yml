@@ -71,8 +71,13 @@ jobs:
 
             echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
             echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
+            echo "P90_VAL=$(printf "%.2f" $P90)" >> $GITHUB_ENV
+            echo "MED_VAL=$(printf "%.2f" $MED)" >> $GITHUB_ENV
+            echo "AVG_VAL=$(printf "%.2f" $AVG)" >> $GITHUB_ENV
             echo "TOTAL_VAL=$TOTAL" >> $GITHUB_ENV
             echo "SRATE_VAL=$SRATE" >> $GITHUB_ENV
+            echo "FAILED_VAL=$FAILED" >> $GITHUB_ENV
+            echo "DATA_MBPS_VAL=$(printf "%.2f" $DATA_MBPS)" >> $GITHUB_ENV
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
@@ -92,7 +97,7 @@ jobs:
       - name: Update README with Stats
         if: github.ref == 'refs/heads/main' && env.RPS_VAL != '' && env.RPS_VAL != '0.00'
         run: |
-          NEW_STATS="### Latest Performance (Auto-updated)\n\n| Total Requests | Requests/sec | p95 Latency | Success Rate |\n| :--- | :--- | :--- | :--- |\n| **${{ env.TOTAL_VAL }}** | **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.SRATE_VAL }}%** |\n\n_Last Benchmarked: $(date)_"
+          NEW_STATS="### Latest Performance (Auto-updated)\n\n| Total Requests | Requests/sec | p95 Latency | p90 Latency | Median Latency | Avg Latency | Success Rate | Failed Requests | Throughput |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| **${{ env.TOTAL_VAL }}** | **${{ env.RPS_VAL }} req/s** | **${{ env.P95_VAL }}ms** | **${{ env.P90_VAL }}ms** | **${{ env.MED_VAL }}ms** | **${{ env.AVG_VAL }}ms** | **${{ env.SRATE_VAL }}%** | **${{ env.FAILED_VAL }}** | **${{ env.DATA_MBPS_VAL }} MB/s** |\n\n_Last Benchmarked: $(date)_"
 
           sed -i '/<!-- BENCHMARK_START -->/,/<!-- BENCHMARK_END -->/{/<!-- BENCHMARK_START -->/b; /<!-- BENCHMARK_END -->/b; d}' README.md
           sed -i "/<!-- BENCHMARK_START -->/a $NEW_STATS" README.md
