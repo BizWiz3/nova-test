@@ -51,19 +51,19 @@ jobs:
           cat ${{ github.workspace }}/summary.json || echo "EMPTY OR UNREADABLE"
           echo "=== k6 exit code ==="
           docker inspect nova-running-app --format='{{.State.ExitCode}}' || echo "N/A"
-          
+
       - name: Generate Action Summary
         if: always()
         run: |
           echo "## Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
           if [ -f "summary.json" ] && [ -s "summary.json" ]; then
-            RPS=$(jq -r '.metrics.http_reqs.values.rate // 0' summary.json)
-            TOTAL=$(jq -r '.metrics.http_reqs.values.count // 0' summary.json)
-            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"] // 0' summary.json)
-            AVG=$(jq -r '.metrics.http_req_duration.values.avg // 0' summary.json)
-            
-            PASSES=$(jq -r '.metrics.checks.values.passes // 0' summary.json)
-            FAILS=$(jq -r '.metrics.checks.values.fails // 0' summary.json)
+            RPS=$(jq -r '.metrics.http_reqs.rate // 0' summary.json)
+            TOTAL=$(jq -r '.metrics.http_reqs.count // 0' summary.json)
+            P95=$(jq -r '.metrics.http_req_duration["p(95)"] // 0' summary.json)
+            AVG=$(jq -r '.metrics.http_req_duration.avg // 0' summary.json)
+
+            PASSES=$(jq -r '.metrics.checks.passes // 0' summary.json)
+            FAILS=$(jq -r '.metrics.checks.fails // 0' summary.json)
             TOTAL_CHKS=$((PASSES + FAILS))
 
             if [ "$TOTAL_CHKS" -gt 0 ]; then
@@ -85,7 +85,7 @@ jobs:
             echo "| **Average Latency** | $(printf "%.4f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
             echo "| **p95 Latency** | $(printf "%.2f" $P95)ms |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "summary.json not found." >> $GITHUB_STEP_SUMMARY
+            echo "summary.json not found or empty." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Update README with Stats
