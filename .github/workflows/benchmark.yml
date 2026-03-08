@@ -44,27 +44,23 @@ jobs:
       - name: Generate Action Summary
         if: always()
         run: |
-          echo "## 🚀 Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
           if [ -f "summary.json" ]; then
-            # Use jq to extract values with 0 as a default fallback
             RPS=$(jq -r '.metrics.http_reqs.values.rate // 0' summary.json)
             TOTAL=$(jq -r '.metrics.http_reqs.values.count // 0' summary.json)
             P95=$(jq -r '.metrics.http_req_duration.values["p(95)"] // 0' summary.json)
             AVG=$(jq -r '.metrics.http_req_duration.values.avg // 0' summary.json)
             
-            # Extract checks safely
             PASSES=$(jq -r '.metrics.checks.values.passes // 0' summary.json)
             FAILS=$(jq -r '.metrics.checks.values.fails // 0' summary.json)
             TOTAL_CHKS=$((PASSES + FAILS))
 
-            # Calculate Success Rate safely
             if [ "$TOTAL_CHKS" -gt 0 ]; then
               SRATE=$(echo "scale=2; ($PASSES / $TOTAL_CHKS) * 100" | bc -l || echo "0")
             else
               SRATE="0.00"
             fi
 
-            # Export to ENV for README
             echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
             echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
             echo "TOTAL_VAL=$TOTAL" >> $GITHUB_ENV
@@ -78,17 +74,17 @@ jobs:
             echo "| **Average Latency** | $(printf "%.4f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
             echo "| **p95 Latency** | $(printf "%.2f" $P95)ms |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ summary.json not found." >> $GITHUB_STEP_SUMMARY
+            echo "summary.json not found." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Update README with Stats
         if: github.ref == 'refs/heads/main' && env.RPS_VAL != '' && env.RPS_VAL != '0.00'
         run: |
-          NEW_STATS="### ⚡ Latest Performance (Auto-updated)\n\n| Total Requests | Requests/sec | p95 Latency | Success Rate |\n| :--- | :--- | :--- | :--- |\n| **${{ env.TOTAL_VAL }}** | **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.SRATE_VAL }}%** |\n\n_Last Benchmarked: $(date)_"
-          
-          sed -i "//,//{ //b; //b; d }" README.md
-          sed -i "//a $NEW_STATS" README.md
-          
+          NEW_STATS="### Latest Performance (Auto-updated)\n\n| Total Requests | Requests/sec | p95 Latency | Success Rate |\n| :--- | :--- | :--- | :--- |\n| **${{ env.TOTAL_VAL }}** | **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.SRATE_VAL }}%** |\n\n_Last Benchmarked: $(date)_"
+
+          sed -i '/<!-- BENCHMARK_START -->/,/<!-- BENCHMARK_END -->/{/<!-- BENCHMARK_START -->/b; /<!-- BENCHMARK_END -->/b; d}' README.md
+          sed -i "/<!-- BENCHMARK_START -->/a $NEW_STATS" README.md
+
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
