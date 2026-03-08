@@ -14,13 +14,11 @@ jobs:
       - name: Build and Start Nova Server
         run: |
           docker build -t nova-app .
-          # Using host network to simplify 127.0.0.1 access
           docker run -d --network="host" --name nova-running-app nova-app
           
       - name: Wait for Server Ready
         run: |
           for i in {1..30}; do
-            # Note: Using 8080 as seen in your logs
             if curl -s http://127.0.0.1:8080/ > /dev/null; then
               echo "Nova is UP!"
               break
@@ -31,7 +29,6 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
-          # Create BOTH files and set permissions
           touch ${{ github.workspace }}/results.json
           touch ${{ github.workspace }}/summary.json
           chmod 666 ${{ github.workspace }}/results.json ${{ github.workspace }}/summary.json
@@ -47,37 +44,40 @@ jobs:
       - name: Generate Action Summary
         if: always()
         run: |
-          echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
           if [ -f "summary.json" ]; then
-            # Extract clean values from the summary export
+            # Extracting new, richer metrics
             RPS=$(jq -r '.metrics.http_reqs.values.rate' summary.json)
+            TOTAL=$(jq -r '.metrics.http_reqs.values.count' summary.json)
             P95=$(jq -r '.metrics.http_req_duration.values["p(95)"]' summary.json)
             AVG=$(jq -r '.metrics.http_req_duration.values.avg' summary.json)
+            SUCCESS=$(jq -r '.metrics.checks.values.passes' summary.json)
+            TOTAL_CHKS=$(jq -r '.metrics.checks.values.passes + .metrics.checks.values.fails' summary.json)
             
-            # Use 'bc' or a simple shell check to ensure they are numbers
-            # If jq fails, it defaults to 0
-            [[ "$RPS" == "null" || -z "$RPS" ]] && RPS=0
-            [[ "$P95" == "null" || -z "$P95" ]] && P95=0
-            [[ "$AVG" == "null" || -z "$AVG" ]] && AVG=0
+            # Calculate Success Rate percentage
+            SRATE=$(awk "BEGIN {printf \"%.2f\", ($SUCCESS/$TOTAL_CHKS)*100}")
 
-            # Set ENV for README update
+            # Format and Export
             echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
             echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
-            echo "AVG_VAL=$(printf "%.4f" $AVG)" >> $GITHUB_ENV
+            echo "TOTAL_VAL=$TOTAL" >> $GITHUB_ENV
+            echo "SRATE_VAL=$SRATE" >> $GITHUB_ENV
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Total Requests** | $TOTAL |" >> $GITHUB_STEP_SUMMARY
             echo "| **Requests/sec** | $(printf "%.2f" $RPS) req/s |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Success Rate** | $SRATE% |" >> $GITHUB_STEP_SUMMARY
             echo "| **Average Latency** | $(printf "%.4f" $AVG)ms |" >> $GITHUB_STEP_SUMMARY
             echo "| **p95 Latency** | $(printf "%.2f" $P95)ms |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "summary.json not found." >> $GITHUB_STEP_SUMMARY
+            echo "❌ summary.json not found." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Update README with Stats
-        if: github.ref == 'refs/heads/main' && env.RPS_VAL != '0.00'
+        if: github.ref == 'refs/heads/main' && env.RPS_VAL != '' && env.RPS_VAL != '0.00'
         run: |
-          NEW_STATS="### Latest Performance (Auto-updated)\n| RPS | p95 Latency | Avg Latency |\n| :--- | :--- | :--- |\n| **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.AVG_VAL }}ms** |\n_Last Benchmarked: $(date)_"
+          NEW_STATS="### ⚡ Latest Performance (Auto-updated)\n\n| Total Requests | Requests/sec | p95 Latency | Success Rate |\n| :--- | :--- | :--- | :--- |\n| **${{ env.TOTAL_VAL }}** | **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.SRATE_VAL }}%** |\n\n_Last Benchmarked: $(date)_"
           
           sed -i "//,//{ //b; //b; d }" README.md
           sed -i "//a $NEW_STATS" README.md
@@ -90,4 +90,4 @@ jobs:
 
       - name: Show Nova Server Logs
         if: always()
-        run: docker logs nova-running-app || echo "Container not found."
+        run: docker logs nova-running-app || echo "Logs unavailable."
