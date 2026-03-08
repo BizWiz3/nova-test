@@ -5,11 +5,11 @@ license = "MIT"
 
 [target]
 environment = "lune"
-bin = "index.luau"
+bin = "src/index.luau"
 
 [indices]
 default = "https://github.com/pesde-pkg/index"
 
 [dependencies]
-nova = { name = "bizwiz3/nova", version = "^0.1.3" }
+nova = { name = "bizwiz3/nova", version = "^0.2.0" }
 lunemon = { name = "bizwiz3/lunemon", version = "^0.1.1" }

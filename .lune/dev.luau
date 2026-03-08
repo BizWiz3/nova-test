@@ -10,5 +10,5 @@ local result = process.exec("pesde", {
 })
 
 if not result.ok then 
-    print(result.stderr)
+    error(result.stderr)
 end

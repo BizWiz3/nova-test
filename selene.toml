@@ -1,2 +1,0 @@
-std='luau'
-exclude = ["lune_packages/*", "*.spec.lua"]
