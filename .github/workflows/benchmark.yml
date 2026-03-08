@@ -1,6 +1,9 @@
 name: Nova Performance Benchmark
 on: [push, pull_request]
 
+permissions: 
+    contents: write
+    
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -42,16 +45,21 @@ jobs:
         run: |
           echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
           if [ -f "results.json" ]; then
-            # k6 JSON output is a stream. We need the specific 'summary' type or the last metric.
-            # This finds the last http_reqs metric and the last http_req_duration metric
-            RPS=$(grep '"metric":"http_reqs"' results.json | tail -n 1 | jq '.values.rate')
-            P95=$(grep '"metric":"http_req_duration"' results.json | tail -n 1 | jq '.values["p(95)"]')
-            AVG=$(grep '"metric":"http_req_duration"' results.json | tail -n 1 | jq '.values.avg')
+            # k6 JSON stream contains many metrics; we want the final summary entries
+            # We use 'select' to find the metric and ensure it's not a null value
+            RPS=$(jq -r 'select(.metric=="http_reqs" and .values.rate != null) | .values.rate' results.json | tail -n 1)
+            P95=$(jq -r 'select(.metric=="http_req_duration" and .values["p(95)"] != null) | .values["p(95)"]' results.json | tail -n 1)
+            AVG=$(jq -r 'select(.metric=="http_req_duration" and .values.avg != null) | .values.avg' results.json | tail -n 1)
             
-            # Format numbers to 2 decimal places for readability
-            RPS_FIXED=$(printf "%.2f" $RPS)
-            P95_FIXED=$(printf "%.2f" $P95)
-            AVG_FIXED=$(printf "%.4f" $AVG)
+            # Default to 0 if variables are empty or null
+            RPS=${RPS:-0}
+            P95=${P95:-0}
+            AVG=${AVG:-0}
+
+            # Safely format numbers
+            RPS_FIXED=$(printf "%.2f" "$RPS")
+            P95_FIXED=$(printf "%.2f" "$P95")
+            AVG_FIXED=$(printf "%.4f" "$AVG")
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
@@ -72,3 +80,17 @@ jobs:
         with:
           name: benchmark-results
           path: ${{ github.workspace }}/results.json
+
+      - name: Update README with Stats
+        if: github.ref == 'refs/heads/main'
+        run: |
+          NEW_STATS="### Latest Performance (Auto-updated)\n| RPS | p95 Latency | Avg Latency |\n| :--- | :--- | :--- |\n| **$RPS_FIXED** | **${P95_FIXED}ms** | **${AVG_FIXED}ms** |\n_Last Benchmarked: $(date)_"
+          
+          sed -i "//,//{ //b; //b; d }" README.md
+          sed -i "//a $NEW_STATS" README.md
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update benchmark results [skip ci]" || echo "No changes to commit"
+          git push
