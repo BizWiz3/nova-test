@@ -29,8 +29,13 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
+          touch ${{ github.workspace }}/results.json
+          touch ${{ github.workspace }}/summary.json
+          chmod 666 ${{ github.workspace }}/results.json ${{ github.workspace }}/summary.json
+          
           docker run --rm \
             --network="host" \
+            --add-host=host.docker.internal:host-gateway \
             -v ${{ github.workspace }}:/io \
             -i grafana/k6 run /io/scripts/bench.js \
             --out json=/io/results.json \
