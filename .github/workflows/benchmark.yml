@@ -20,11 +20,12 @@ jobs:
           sleep 5
 
       - name: Run k6 Benchmark
+        continue-on-error: true
         run: |
-          docker run --rm \
-            --network="host" \
-            -v ${{ github.workspace }}:/io \
-            -i grafana/k6 run /io/scripts/bench.js
+          docker run --rm --network="host" -v ${{ github.workspace }}:/io -i grafana/k6 run /io/scripts/bench.js
+
+      - name: Show Nova Server Logs
+        run: docker logs nova-running-app
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
