@@ -1,9 +1,9 @@
 name: Nova Performance Benchmark
 on: [push, pull_request]
 
-permissions: 
-    contents: write
-    
+permissions:
+  contents: write
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -14,11 +14,13 @@ jobs:
       - name: Build and Start Nova Server
         run: |
           docker build -t nova-app .
+          # Using host network to simplify 127.0.0.1 access
           docker run -d --network="host" --name nova-running-app nova-app
           
       - name: Wait for Server Ready
         run: |
           for i in {1..30}; do
+            # Note: Using 8080 as seen in your logs
             if curl -s http://127.0.0.1:8080/ > /dev/null; then
               echo "Nova is UP!"
               break
@@ -29,7 +31,7 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
-          # Fix permissions for Docker write
+          # Prepare the results file with correct permissions for the Docker user
           touch ${{ github.workspace }}/results.json
           chmod 666 ${{ github.workspace }}/results.json
           
@@ -45,21 +47,24 @@ jobs:
         run: |
           echo "## Nova Benchmark Results" >> $GITHUB_STEP_SUMMARY
           if [ -f "results.json" ]; then
-            # k6 JSON stream contains many metrics; we want the final summary entries
-            # We use 'select' to find the metric and ensure it's not a null value
-            RPS=$(jq -r 'select(.metric=="http_reqs" and .values.rate != null) | .values.rate' results.json | tail -n 1)
-            P95=$(jq -r 'select(.metric=="http_req_duration" and .values["p(95)"] != null) | .values["p(95)"]' results.json | tail -n 1)
-            AVG=$(jq -r 'select(.metric=="http_req_duration" and .values.avg != null) | .values.avg' results.json | tail -n 1)
+            # Extract final summary metrics from the JSON stream
+            RPS=$(jq -r 'select(.metric=="http_reqs") | .values.rate' results.json | tail -n 1)
+            P95=$(jq -r 'select(.metric=="http_req_duration") | .values["p(95)"]' results.json | tail -n 1)
+            AVG=$(jq -r 'select(.metric=="http_req_duration") | .values.avg' results.json | tail -n 1)
             
-            # Default to 0 if variables are empty or null
+            # Fallback to 0 to prevent printf errors if metrics are missing
             RPS=${RPS:-0}
             P95=${P95:-0}
             AVG=${AVG:-0}
 
-            # Safely format numbers
+            # Format and Save to ENV for the README update step
             RPS_FIXED=$(printf "%.2f" "$RPS")
             P95_FIXED=$(printf "%.2f" "$P95")
             AVG_FIXED=$(printf "%.4f" "$AVG")
+            
+            echo "RPS_VAL=$RPS_FIXED" >> $GITHUB_ENV
+            echo "P95_VAL=$P95_FIXED" >> $GITHUB_ENV
+            echo "AVG_VAL=$AVG_FIXED" >> $GITHUB_ENV
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
@@ -70,27 +75,23 @@ jobs:
             echo "results.json not found." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Show Nova Server Logs
-        if: always()
-        run: docker logs nova-running-app
-
-      - name: Upload Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: benchmark-results
-          path: ${{ github.workspace }}/results.json
-
       - name: Update README with Stats
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.RPS_VAL != ''
         run: |
-          NEW_STATS="### Latest Performance (Auto-updated)\n| RPS | p95 Latency | Avg Latency |\n| :--- | :--- | :--- |\n| **$RPS_FIXED** | **${P95_FIXED}ms** | **${AVG_FIXED}ms** |\n_Last Benchmarked: $(date)_"
+          # Create the table string
+          NEW_STATS="### Latest Performance (Auto-updated)\n| RPS | p95 Latency | Avg Latency |\n| :--- | :--- | :--- |\n| **${{ env.RPS_VAL }}** | **${{ env.P95_VAL }}ms** | **${{ env.AVG_VAL }}ms** |\n_Last Benchmarked: $(date)_"
           
+          # Use sed to wipe old content and inject new content between markers
           sed -i "//,//{ //b; //b; d }" README.md
           sed -i "//a $NEW_STATS" README.md
           
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
+          # [skip ci] is vital to prevent an infinite loop of benchmarks
           git commit -m "docs: update benchmark results [skip ci]" || echo "No changes to commit"
           git push
+
+      - name: Show Nova Server Logs
+        if: always()
+        run: docker logs nova-running-app || echo "Container not found."

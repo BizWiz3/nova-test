@@ -1,26 +1,20 @@
-
 FROM ubuntu:24.04
 
+# 1. Standardize installation and cleanup
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl \
-    unzip \
-    ca-certificates \
-    libssl3 \
-    libdbus-1-3 \
-    libstdc++6 \
-    git && \
+    curl unzip ca-certificates libssl3 libdbus-1-3 libstdc++6 git && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Lune
-RUN curl -L "https://github.com/lune-org/lune/releases/download/v0.10.4/lune-0.10.4-linux-x86_64.zip" -o lune.zip && \
+# 2. Install Lune with -fL (Fail on error, Follow redirects)
+RUN curl -f -L "https://github.com/lune-org/lune/releases/download/v0.10.4/lune-0.10.4-linux-x86_64.zip" -o lune.zip && \
     unzip -j lune.zip && \
     chmod +x lune && \
     mv lune /usr/local/bin/lune && \
     rm lune.zip
 
-# Install Pesde
-RUN curl -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registry.0.2.3/pesde-0.7.2-linux-x86_64.zip" -o pesde.zip && \
+# 3. Install Pesde
+RUN curl -f -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registry.0.2.3/pesde-0.7.2-linux-x86_64.zip" -o pesde.zip && \
     unzip -j pesde.zip && \
     chmod +x pesde && \
     mv pesde /usr/local/bin/pesde && \
@@ -28,9 +22,7 @@ RUN curl -L "https://github.com/pesde-pkg/pesde/releases/download/v0.7.2+registr
 
 WORKDIR /app
 
-RUN lune --version && pesde --version
-
-ENV PESDE_CONFIG_USER_TOKEN_STORE=file
+RUN pesde config set user_token_store file
 
 COPY pesde.toml ./
 
