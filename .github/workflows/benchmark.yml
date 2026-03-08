@@ -29,10 +29,6 @@ jobs:
 
       - name: Run k6 Benchmark
         run: |
-          touch ${{ github.workspace }}/results.json
-          touch ${{ github.workspace }}/summary.json
-          chmod 666 ${{ github.workspace }}/results.json ${{ github.workspace }}/summary.json
-          
           docker run --rm \
             --network="host" \
             -v ${{ github.workspace }}:/io \
@@ -45,7 +41,7 @@ jobs:
         if: always()
         run: |
           echo "## Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
-          if [ -f "summary.json" ]; then
+          if [ -f "summary.json" ] && [ -s "summary.json" ]; then
             RPS=$(jq -r '.metrics.http_reqs.values.rate // 0' summary.json)
             TOTAL=$(jq -r '.metrics.http_reqs.values.count // 0' summary.json)
             P95=$(jq -r '.metrics.http_req_duration.values["p(95)"] // 0' summary.json)
