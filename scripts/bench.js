@@ -10,11 +10,11 @@ export const options = {
 };
 
 export default function () {
-  const homeRes = http.get('http://127.0.0.1:10000/');
+  const homeRes = http.get('http://127.0.0.1:8080/');
   check(homeRes, { 'home status 200': (r) => r.status === 200 });
 
   const randomId = Math.floor(Math.random() * 10000);
-  const dynamicRes = http.get(`http://127.0.0.1:10000/users/${randomId}`);
+  const dynamicRes = http.get(`http://127.0.0.1:8080/users/${randomId}`);
   
   check(dynamicRes, {
     'dynamic status 200': (r) => r.status === 200,

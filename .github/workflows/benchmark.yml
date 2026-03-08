@@ -16,7 +16,7 @@ jobs:
       - name: Wait for Server Ready
         run: |
           for i in {1..30}; do
-            if curl -s http://127.0.0.1:10000/ > /dev/null; then
+            if curl -s http://127.0.0.1:8080/ > /dev/null; then
               echo "Nova is UP!"
               break
             fi
