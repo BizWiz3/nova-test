@@ -46,18 +46,25 @@ jobs:
         run: |
           echo "## 🚀 Nova Performance Summary" >> $GITHUB_STEP_SUMMARY
           if [ -f "summary.json" ]; then
-            # Extracting new, richer metrics
-            RPS=$(jq -r '.metrics.http_reqs.values.rate' summary.json)
-            TOTAL=$(jq -r '.metrics.http_reqs.values.count' summary.json)
-            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"]' summary.json)
-            AVG=$(jq -r '.metrics.http_req_duration.values.avg' summary.json)
-            SUCCESS=$(jq -r '.metrics.checks.values.passes' summary.json)
-            TOTAL_CHKS=$(jq -r '.metrics.checks.values.passes + .metrics.checks.values.fails' summary.json)
+            # Use jq to extract values with 0 as a default fallback
+            RPS=$(jq -r '.metrics.http_reqs.values.rate // 0' summary.json)
+            TOTAL=$(jq -r '.metrics.http_reqs.values.count // 0' summary.json)
+            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"] // 0' summary.json)
+            AVG=$(jq -r '.metrics.http_req_duration.values.avg // 0' summary.json)
             
-            # Calculate Success Rate percentage
-            SRATE=$(awk "BEGIN {printf \"%.2f\", ($SUCCESS/$TOTAL_CHKS)*100}")
+            # Extract checks safely
+            PASSES=$(jq -r '.metrics.checks.values.passes // 0' summary.json)
+            FAILS=$(jq -r '.metrics.checks.values.fails // 0' summary.json)
+            TOTAL_CHKS=$((PASSES + FAILS))
 
-            # Format and Export
+            # Calculate Success Rate safely
+            if [ "$TOTAL_CHKS" -gt 0 ]; then
+              SRATE=$(echo "scale=2; ($PASSES / $TOTAL_CHKS) * 100" | bc -l || echo "0")
+            else
+              SRATE="0.00"
+            fi
+
+            # Export to ENV for README
             echo "RPS_VAL=$(printf "%.2f" $RPS)" >> $GITHUB_ENV
             echo "P95_VAL=$(printf "%.2f" $P95)" >> $GITHUB_ENV
             echo "TOTAL_VAL=$TOTAL" >> $GITHUB_ENV
