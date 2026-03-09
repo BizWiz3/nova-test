@@ -171,7 +171,9 @@ jobs:
       - name: Show Nova Server Logs
         if: always()
         run: |
+          docker logs nova-running-app 2>&1 | tail -100 | tee -a $GITHUB_STEP_SUMMARY || echo "Logs unavailable."
           echo "### 📋 Nova Server Logs" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           docker logs nova-running-app 2>&1 | tail -100 >> $GITHUB_STEP_SUMMARY || echo "Logs unavailable."
           echo '```' >> $GITHUB_STEP_SUMMARY
+        
