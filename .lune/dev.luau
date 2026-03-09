@@ -4,7 +4,7 @@ local result = process.exec("pesde", {
     "run",
     "lunemon",
     "--",
-    "index.luau"
+    "src/index.luau"
 }, {
     stdio = "inherit",
 })
