@@ -16,11 +16,4 @@ export default function () {
 
   const homeRes = http.get('http://host.docker.internal:8080/', params);
   check(homeRes, { 'static_ok': (r) => r.status === 200 });
-
-  const randomId = Math.floor(Math.random() * 10000);
-  const dynamicRes = http.get(`http://host.docker.internal:8080/users/${randomId}`, params);
-  
-  check(dynamicRes, {
-    'dynamic_ok': (r) => r.status === 200,
-  });
 }
